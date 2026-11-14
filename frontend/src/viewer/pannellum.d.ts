@@ -25,6 +25,7 @@ interface PannellumViewer {
   getYaw: () => number
   getPitch: () => number
   setHfov: (hfov: number, animated?: boolean) => void
+  setHfovBounds: (bounds: [number, number]) => PannellumViewer
   addHotSpot: (hotspot: PannellumHotspotConfig) => void
   removeHotSpot: (id: string) => boolean
   stopMovement: () => void

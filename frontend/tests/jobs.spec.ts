@@ -70,6 +70,19 @@ test('trabajo manual guiado conecta ida y vuelta, publica y registra entrega sin
   await expect(editor.getByText('Ambiente inicial', { exact: true })).toBeVisible()
   await expect(editor.locator('.viewer-frame')).toHaveAttribute('data-status', 'ready')
   await editor.locator('.panorama canvas').evaluate((canvas) => canvas.setAttribute('data-persistente', 'true'))
+  // El ángulo dibujado en celular se adapta al visor; guardar conserva la
+  // referencia del encuadre aceptada por la API, también después de hacer zoom.
+  await editor.getByRole('button', { name: 'Acercar', exact: true }).click()
+  const savingView = page.waitForResponse(response => response.request().method() === 'PUT'
+    && new URL(response.url()).pathname.includes('/scenes/')
+    && response.request().postDataJSON()?.initial_hfov !== undefined)
+  await editor.getByRole('button', { name: 'Guardar vista actual como inicial', exact: true }).click()
+  const savedView = await savingView
+  expect(savedView.status()).toBe(200)
+  expect(savedView.request().postDataJSON().initial_hfov).toBeCloseTo(100)
+  expect((await savedView.json()).initial_hfov).toBeCloseTo(100)
+  await expect(editor.locator('.viewer-frame')).toHaveAttribute('data-status', 'ready')
+  await editor.getByRole('button', { name: 'Vista amplia', exact: true }).click()
   const selectedPoint = await chooseHotspotPosition(page, editor, testInfo)
   await editor.getByLabel('Etiqueta del punto', { exact: true }).fill('Ir a Cocina')
   await editor.getByRole('combobox', { name: 'Ambiente de destino', exact: true }).selectOption({ label: 'Cocina' })

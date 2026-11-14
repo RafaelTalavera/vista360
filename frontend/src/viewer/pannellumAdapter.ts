@@ -6,6 +6,24 @@ import type {
 } from './types'
 
 const normalizeYaw = (yaw: number) => ((yaw + 180) % 360 + 360) % 360 - 180
+const tangent = (degrees: number) => Math.tan(degrees * Math.PI / 360)
+const fieldOfView = (value: number) => Math.atan(value) * 360 / Math.PI
+type Projection = { scale: number; min: number; max: number }
+
+function projectionFor(container: HTMLElement, mobile: boolean): Projection {
+  const { width, height } = container.getBoundingClientRect()
+  // En vertical, 110° horizontales abarcan casi 150° verticales. Limitar la
+  // apertura vertical a 95° evita ese gran angular exagerado en el teléfono.
+  const max = mobile && width > 0 && height > 0
+    ? Math.max(35, Math.min(110, fieldOfView(tangent(95) * width / height))) : 110
+  const scale = tangent(max) / tangent(110)
+  return { scale, min: fieldOfView(tangent(50) * scale), max }
+}
+
+// Los encuadres guardados y controles conservan la referencia 50–110° del
+// escritorio; la proyección adapta sólo el ángulo que se dibuja en pantalla.
+const renderedHfov = (reference: number, projection: Projection) => fieldOfView(tangent(Math.max(50, Math.min(110, reference))) * projection.scale)
+const referenceHfov = (rendered: number, projection: Projection) => Math.max(50, Math.min(110, fieldOfView(tangent(rendered) / projection.scale)))
 
 export function selectSource(sources: readonly PanoramaSource[], maxTextureSize: number, preferredWidth = maxTextureSize) {
   const candidates = [...sources]
@@ -27,6 +45,8 @@ export function createPannellumAdapter(
   container: HTMLElement, callbacks: ViewerCallbacks,
 ): PanoramaAdapter {
   const maxTextureSize = textureLimit()
+  const mobile = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches
+  let projection = projectionFor(container, mobile)
   let viewer: PannellumViewer | null = null
   let controller: AbortController | null = null
   let generation = 0
@@ -44,7 +64,21 @@ export function createPannellumAdapter(
   const previewId = 'vision360-unsaved-point'
   let pointer: { id: number; x: number; y: number; moved: boolean } | null = null
   const pointers = new Set<number>()
-  const observer = new ResizeObserver(() => viewer?.resize())
+  function resize() {
+    const reference = viewer?.isLoaded() ? referenceHfov(viewer.getHfov(), projection) : null
+    if (reference !== null && viewer) {
+      projection = projectionFor(container, mobile)
+      viewer.setHfovBounds([projection.min, projection.max])
+      viewer.resize()
+      viewer.setHfov(renderedHfov(reference, projection), false)
+    } else {
+      // Mientras carga, la proyección debe seguir correspondiendo al hfov
+      // de la configuración nativa. Se adapta a la nueva medida al terminar.
+      if (!viewer) projection = projectionFor(container, mobile)
+      viewer?.resize()
+    }
+  }
+  const observer = new ResizeObserver(resize)
   observer.observe(container)
 
   function navigateThrough(hotspot: Hotspot & { type: 'navigation' }, button: HTMLElement) {
@@ -192,7 +226,7 @@ export function createPannellumAdapter(
   async function loadScene(scene: PanoramaScene, options?: { preferredWidth?: number; preserveView?: boolean }) {
     if (destroyed) return
     const preserved = options?.preserveView && activeSceneId === scene.id && viewer?.isLoaded()
-      ? { yaw: viewer.getYaw(), pitch: viewer.getPitch(), hfov: viewer.getHfov() } : null
+      ? { yaw: viewer.getYaw(), pitch: viewer.getPitch(), hfov: referenceHfov(viewer.getHfov(), projection) } : null
     const current = ++generation
     const departure = walk?.target === scene.id && walk.origin === activeSceneId ? walk : null
     walk = null
@@ -233,14 +267,15 @@ export function createPannellumAdapter(
       const previousSceneId = activeSceneId
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       const fadeDuration = reducedMotion || !viewer || preserved ? 0 : 420
+      projection = projectionFor(container, mobile)
       const config = {
         // Una foto estática se carga una vez en la GPU. dynamic=true volvería a
         // subir todos sus píxeles en cada frame de arrastre o de los sensores.
         type: 'equirectangular', panorama: objectUrl, dynamic: false, dynamicUpdate: false,
         ignoreGPanoXMP: true,
         yaw: preserved?.yaw ?? scene.initialView.yaw, pitch: preserved?.pitch ?? scene.initialView.pitch,
-        // Apertura amplia por defecto; se conserva la dirección inicial guardada.
-        hfov: preserved?.hfov ?? 110, minHfov: 50, maxHfov: 110,
+        // Vista amplia adaptada al tamaño real, sin alterar la dirección guardada.
+        hfov: renderedHfov(preserved?.hfov ?? 110, projection), minHfov: projection.min, maxHfov: projection.max,
         mouseZoom: false, doubleClickZoom: false, sceneFadeDuration: fadeDuration,
         hotSpots: scene.hotspots.map(hotspotConfig),
       }
@@ -261,6 +296,7 @@ export function createPannellumAdapter(
       viewer.off('load'); viewer.off('error')
       viewer.on('load', () => {
         viewer?.setUpdate(false)
+        resize()
         activeSceneId = scene.id
         sceneHotspots = scene.hotspots
         hiddenHotspot = null
@@ -320,14 +356,14 @@ export function createPannellumAdapter(
 
   return {
     loadScene, coordinatesAt,
-    getView: () => viewer?.isLoaded() ? { yaw: normalizeYaw(viewer.getYaw()), pitch: viewer.getPitch(), hfov: viewer.getHfov() } : null,
+    getView: () => viewer?.isLoaded() ? { yaw: normalizeYaw(viewer.getYaw()), pitch: viewer.getPitch(), hfov: referenceHfov(viewer.getHfov(), projection) } : null,
     setView: (view) => {
       // La inercia de un arrastre previo no debe competir con sensores o centrado.
       viewer?.stopMovement()
-      viewer?.lookAt(view.pitch, normalizeYaw(view.yaw), view.hfov, false)
+      viewer?.lookAt(view.pitch, normalizeYaw(view.yaw), view.hfov === undefined ? undefined : renderedHfov(view.hfov, projection), false)
     },
     zoom: (delta) => {
-      if (viewer?.isLoaded()) viewer.setHfov(Math.max(50, Math.min(110, viewer.getHfov() + delta)), false)
+      if (viewer?.isLoaded()) viewer.setHfov(renderedHfov(referenceHfov(viewer.getHfov(), projection) + delta, projection), false)
     },
     setPicking: (enabled) => { picking = enabled; pointerCancel() },
     setPreviewPoint,
@@ -338,7 +374,7 @@ export function createPannellumAdapter(
       }
     },
     removeHotspot: (id) => { viewer?.removeHotSpot(id) },
-    resize: () => viewer?.resize(),
+    resize,
     destroy: () => {
       if (destroyed) return
       destroyed = true

@@ -72,10 +72,12 @@ test('recorrido público muestra controles de movimiento sin desplazar el panora
     expect(frame.y + frame.height).toBeLessThanOrEqual(viewport.height)
     expect(frame.height).toBeGreaterThan(viewport.height * (viewport.height < 500 ? 0.55 : 0.7))
     await page.getByRole('button', { name: 'Desactivar movimiento', exact: true }).click()
-    // El área de controles permite acceder al contenido inferior sin arrastrar la foto.
+    // Primero se recorre el panel acotado; al llegar al borde continúa la página.
     await page.locator('.viewer-controls').hover()
-    await page.mouse.wheel(0, 400)
-    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+    await expect.poll(async () => {
+      await page.mouse.wheel(0, 400)
+      return page.evaluate(() => window.scrollY)
+    }).toBeGreaterThan(0)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
 })

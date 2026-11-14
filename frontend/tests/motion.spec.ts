@@ -56,10 +56,13 @@ test('movimiento del celular pide permiso y sigue giro e inclinación sin cambia
   await point(page, 330, 120)
   await expect.poll(async () => Math.abs((await view(page)).yaw - 30)).toBeLessThan(.2)
   await expect.poll(async () => Math.abs((await view(page)).pitch - 30)).toBeLessThan(.2)
+  const initialHfov = (await view(page)).hfov
   await page.getByRole('button', { name: 'Acercar', exact: true }).click()
+  const zoomedHfov = (await view(page)).hfov
+  expect(zoomedHfov).toBeLessThan(initialHfov)
   await point(page, 320, 120)
   await expect.poll(async () => Math.abs((await view(page)).yaw - 40)).toBeLessThan(.2)
-  expect((await view(page)).hfov).toBeCloseTo(100)
+  expect((await view(page)).hfov).toBeCloseTo(zoomedHfov)
   await page.getByRole('button', { name: 'Desactivar movimiento', exact: true }).click()
   const stopped = await view(page)
   await point(page, 250, 150)
@@ -118,8 +121,9 @@ for (const permission of ['denied', 'reject'] as const) {
     await page.getByRole('button', { name: 'Mirar con el celular', exact: true }).click()
     await expect(page.getByText(/No se habilitó el permiso|El navegador no permitió/)).toBeVisible()
     expect(await page.evaluate(() => (window as any).__motionTest.listeners.size)).toBe(0)
+    const initialHfov = (await view(page)).hfov
     await page.getByRole('button', { name: 'Acercar', exact: true }).click()
-    expect((await view(page)).hfov).toBeCloseTo(100)
+    expect((await view(page)).hfov).toBeLessThan(initialHfov)
     expect(errors).toEqual([])
   })
 }
