@@ -214,3 +214,21 @@
 .resolution select { margin-top: .5rem; max-width: 22rem; }
 .pnlm-controls { filter: invert(.9) hue-rotate(155deg); }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation-duration: 0s !important; } }
+
+/* Ampliar únicamente el visor conserva el canvas y deja la fotografía despejada. */
+.viewer-expand, .viewer-toggle-controls { position: absolute; top: max(.75rem, env(safe-area-inset-top)); z-index: 10; min-height: 44px; padding: .5rem .75rem; border-color: #b0f4ff50; background: #071321e8; color: #fff; font-size: .75rem; box-shadow: 0 2px 12px #0005; }
+.viewer-expand { right: max(.75rem, env(safe-area-inset-right)); }
+.viewer-toggle-controls { left: max(.75rem, env(safe-area-inset-left)); }
+.viewer-section--fullscreen { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100%; height: 100dvh; margin: 0; padding: 0; background: #070b14; }
+.viewer-section.viewer-section--fullscreen .viewer-stage { position: absolute; inset: 0; display: block; height: 100%; }
+.viewer-section.viewer-section--fullscreen .viewer-frame { width: 100%; height: 100%; border-radius: 0; outline: 0; box-shadow: none; }
+.viewer-section--fullscreen > :not(.viewer-stage):not(.information) { display: none; }
+.viewer-section--fullscreen .viewer-expand span { display: none; }
+.viewer-section.viewer-section--fullscreen .viewer-controls { position: absolute; z-index: 11; bottom: max(.75rem, env(safe-area-inset-bottom)); left: max(.75rem, env(safe-area-inset-left)); right: max(.75rem, env(safe-area-inset-right)); max-height: min(40%, 18rem); overflow: auto; padding: .75rem; border: 1px solid #b0f4ff35; border-radius: .75rem; background: #071321ed; }
+.viewer-section--fullscreen .viewer-controls[hidden] { display: none; }
+.viewer-section--fullscreen .viewer-toolbar { margin: 0; flex-wrap: wrap; }
+.viewer-section--fullscreen .information { position: absolute; bottom: max(.75rem, env(safe-area-inset-bottom)); left: .75rem; right: .75rem; z-index: 12; max-height: 40%; overflow: auto; }
+body.panorama-fullscreen-open > #root a[href^="https://wa.me/"] { display: none; }
+@media (max-width: 480px) {
+  .viewer-expand span { display: none; }
+}

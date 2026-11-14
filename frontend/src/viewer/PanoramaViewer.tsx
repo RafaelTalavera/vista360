@@ -4,6 +4,7 @@ import { createPannellumAdapter } from './pannellumAdapter'
 import type { Coordinates, PanoramaAdapter, PanoramaScene, ViewerCallbacks, ViewerDiagnostics } from './types'
 import { createMotionControl, motionAvailability } from './deviceOrientation'
 import type { MotionState } from './deviceOrientation'
+import { useViewerFullscreen } from './useViewerFullscreen'
 
 interface Props {
   scene: PanoramaScene
@@ -18,6 +19,9 @@ interface Props {
 export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, onPick, onSaveView, previewPoint, editingHotspotId }: Props) {
   const language = useLanguage()
   const hasPreviewPoint = Boolean(previewPoint)
+  const section = useRef<HTMLElement>(null)
+  const { fullscreen, toggle: toggleFullscreen } = useViewerFullscreen(section)
+  const [showControls, setShowControls] = useState(false)
   const container = useRef<HTMLDivElement>(null)
   const adapter = useRef<PanoramaAdapter | null>(null)
   const motion = useRef<ReturnType<typeof createMotionControl> | null>(null)
@@ -80,10 +84,15 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
   }, [previewPoint?.yaw, previewPoint?.pitch, editingHotspotId, status, attempt, language])
 
   return (
-    <section className="viewer-section" aria-label={t("Panorama de {0}", [scene.name])}>
+    <section ref={section} className={`viewer-section${fullscreen ? ' viewer-section--fullscreen' : ''}`} role={fullscreen ? 'dialog' : undefined} aria-modal={fullscreen || undefined} aria-label={t("Panorama de {0}", [scene.name])}>
       <div className="viewer-stage">
       <div className="viewer-frame" data-status={status}>
         <div ref={container} className="panorama" data-testid="panorama" />
+        <button type="button" className="viewer-expand" aria-label={fullscreen ? t('Salir de pantalla completa') : t('Pantalla completa')} title={fullscreen ? t('Salir de pantalla completa') : t('Pantalla completa')} onClick={() => { setShowControls(false); void toggleFullscreen() }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d={fullscreen ? 'M3 8h5V3m13 5h-5V3M3 16h5v5m13-5h-5v5' : 'M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5'} /></svg>
+          <span>{fullscreen ? t('Salir de pantalla completa') : t('Pantalla completa')}</span>
+        </button>
+        {fullscreen && <button type="button" className="viewer-toggle-controls" aria-expanded={showControls} onClick={() => setShowControls(value => !value)}>{showControls ? t('Ocultar controles') : t('Mostrar controles')}</button>}
         {status === 'loading' && <p className={hasPanorama ? 'viewer-switching-message' : 'viewer-message viewer-loading'} role="status">{hasPanorama ? t("Cambiando a {0}…", [scene.name]) : t("Cargando panorama…")}</p>}
         {status === 'error' && (
           <div className="viewer-message" role="alert">
@@ -95,7 +104,7 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
           </div>
         )}
       </div>
-      <div className="viewer-controls">
+      <div className="viewer-controls" hidden={fullscreen && !showControls}>
       <div className="viewer-toolbar" aria-label={t("Controles del panorama")}>
         {motionDevice && <label className="viewer-quality">{t('Calidad')}{' '}
           <select aria-label={t('Calidad del panorama')} value={quality} disabled={status !== 'ready'} onChange={event => setQuality(event.target.value as 'auto' | 'high')}>
