@@ -16,7 +16,7 @@ Catálogo inicial provisional (sin precios):
 | Profesional | Mensual (habilitación manual) | 10 | Límite técnico existente | 2 GiB |
 | Estudio | Mensual (habilitación manual) | 30 | Límite técnico existente | 10 GiB |
 
-Las cuotas de almacenamiento se configuran en `SUBSCRIPTION_TRIAL_STORAGE_BYTES`, `SUBSCRIPTION_PROFESSIONAL_STORAGE_BYTES` y `SUBSCRIPTION_STUDIO_STORAGE_BYTES`. No representan espacio contratado en Supabase: antes de vender, hay que contrastarlas con capacidad y consumo reales. Los límites técnicos anteriores por archivo, recorrido y organización siguen aplicándose.
+Las cuotas de almacenamiento se configuran en `SUBSCRIPTION_TRIAL_STORAGE_BYTES`, `SUBSCRIPTION_PROFESSIONAL_STORAGE_BYTES` y `SUBSCRIPTION_STUDIO_STORAGE_BYTES`. No representan espacio contratado en Supabase: antes de vender, hay que contrastarlas con capacidad y consumo reales. Se mantienen los límites por archivo, dimensiones y procesamiento. Las cuotas heredadas por recorrido, cliente y usuario se ajustan al cargar para no reducir la capacidad del plan aplicable; ver la ampliación de almacenamiento más abajo.
 
 Las nuevas cuentas reciben la prueba al crearse su estudio, incluso si después cambian de email. El reloj comienza en esa fecha; no se reinicia al iniciar sesión. La migración asigna **Acceso anterior** (`legacy`) sin vencimiento comercial a todos los estudios que ya existían, preservando trabajos, fotos, enlaces y sus límites técnicos actuales. Un administrador puede pasar esas cuentas a un plan nuevo cuando se acuerde comercialmente; no hay una conversión automática a pago. También puede restaurar Acceso anterior deliberadamente.
 
@@ -30,7 +30,7 @@ El vencimiento se calcula al consultar o intentar una operación: no depende de 
 
 ## Activación de límites comerciales
 
-**Predeterminado: `SUBSCRIPTION_LIMITS_ENABLED=false`.** Los planes y fechas se guardan y muestran, pero sus límites comerciales no bloquean acciones en la etapa de prueba. La interfaz lo indica. Los límites técnicos previos continúan activos. No activar el flag sin revisar las cuotas y avisar a los usuarios afectados.
+**Predeterminado: `SUBSCRIPTION_LIMITS_ENABLED=false`.** Los planes y fechas se guardan y muestran, pero sus límites comerciales no bloquean acciones en la etapa de prueba. La interfaz lo indica. Los límites técnicos previos continúan activos, con una capacidad mínima equivalente al plan pago vigente cuando administración lo haya habilitado. No activar el flag sin revisar las cuotas y avisar a los usuarios afectados.
 
 Al activar `SUBSCRIPTION_LIMITS_ENABLED=true`:
 
@@ -103,3 +103,17 @@ Durante los últimos siete días (incluido el instante exacto de siete días res
 La información se consulta al abrir la sección, recuperar foco/visibilidad y cada minuto mientras la página está visible. Cerrar Mi cuenta también actualiza el recordatorio del estudio. No se usan los datos de planes ajenos para avisar a un colaborador invitado. El recordatorio no depende de que se hayan activado los bloqueos comerciales.
 
 Es un aviso dentro de la aplicación: esta etapa no envía emails, WhatsApp ni notificaciones fuera de la página. No requiere migración, cron ni servicios adicionales.
+
+## Ampliación de almacenamiento y cuotas heredadas
+
+Antes, activar Profesional podía seguir bloqueando una carga por los 128 MiB por recorrido o 256 MiB por cliente de la plantilla demo, aunque el plan indicara 2 GiB. Ahora la preparación de cada carga calcula la capacidad efectiva del estudio propietario: las cuotas técnicas de recorrido y cliente/usuario no quedan por debajo del almacenamiento del plan aplicable. No se modifica la cuota histórica guardada del cliente ni se cambia su titular.
+
+Con `SUBSCRIPTION_LIMITS_ENABLED=true`, primero se comprueba la reserva total del plan del estudio entre todos sus clientes y recorridos. Después, las cuotas antiguas se elevan como mínimo a esa capacidad; no pueden bloquear antes que el plan ni multiplicar su capacidad por cliente. Prueba, Profesional y Estudio mantienen sus cupos agregados y vencimientos. El original y sus reservas, los borradores, versiones retenidas y PDF siguen contabilizándose.
+
+Con el flag apagado, una activación manual de Profesional o Estudio vigente también eleva ese mínimo técnico para que el cambio de plan sea utilizable durante el demo. No se activa implícitamente la limitación comercial ni el bloqueo por vencimiento. Prueba en esta modalidad y Acceso anterior conservan las cuotas técnicas previas. Al cambiar o vencer el plan, la capacidad se vuelve a calcular en la siguiente carga. No se eliminan fotos ni se restablece el consumo al renovar.
+
+La consulta siempre usa el estudio propietario del recorrido, incluso si sube un colaborador con un plan distinto. Se conservan permisos, límites por foto, validación JPEG, dimensiones, frecuencia de cargas y cantidad de procesamientos simultáneos.
+
+No requiere migraciones, nuevas variables ni reasignar un plan ya vigente. Después de desplegar esta versión de la API, basta con reintentar la carga. Profesional conserva 2 GiB por defecto: es capacidad total, no 2 GiB adicionales al espacio que ya esté reservado.
+
+Validación con PostgreSQL temporal: reproducción del bloqueo antes del arreglo; cambio real de Prueba a Profesional y procesamiento de nuevas fotos en recorridos de clientes y personales, con límites comerciales encendidos y apagados; consumo anterior conservado, colaboración sin préstamo de cuotas y cupo agregado entre clientes. También pasaron las pruebas existentes de ingestión, cuotas heredadas, permisos, suscripciones, publicaciones, estudios y PDF de entrega.

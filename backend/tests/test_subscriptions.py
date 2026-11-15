@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from uuid import UUID
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,6 +18,95 @@ from test_business import organization, org_tour
 from test_assets import drain, ingest, jpeg
 from test_publications import ready, publish
 from test_phase3 import new_scene, new_tour
+
+
+@pytest.mark.parametrize('limits_enabled', [False, True])
+@pytest.mark.parametrize('client_tour', [False, True])
+def test_paid_upgrade_unlocks_uploads_despite_previous_storage_caps(clients, database, monkeypatch, limits_enabled, client_tour):
+    from app.modules.assets.models import Asset
+    from app.modules.assets.service import DELIVERY_RESERVATION
+    from app.modules.organizations.models import Organization
+    photo = jpeg()
+    settings = get_settings()
+    old_quota = 2 * (len(photo) + DELIVERY_RESERVATION)
+    monkeypatch.setattr(settings, 'subscription_limits_enabled', limits_enabled)
+    monkeypatch.setattr(settings, 'subscription_trial_storage_bytes', 2 * (len(photo) + 2 * DELIVERY_RESERVATION))
+    for field in ('owner_storage_quota_bytes', 'tour_storage_quota_bytes', 'organization_storage_quota_bytes'):
+        monkeypatch.setattr(settings, field, old_quota)
+    owner = clients(); user = owner.register().json()['user']
+    org = organization(owner) if client_tour else None
+    tour = org_tour(owner, org) if org else new_tour(owner)
+    originals = []
+    for _ in range(2):
+        target = ingest(owner, tour, new_scene(owner, tour), photo)
+        originals.append(target['asset_id'])
+        drain(database)
+    scene = new_scene(owner, tour)
+    path = f"/tours/{tour['id']}/scenes/{scene['id']}/uploads"
+    blocked = owner.mutate('POST', path, {'size_bytes': len(photo), 'mime_type': 'image/jpeg'})
+    assert blocked.status_code == 413
+    assert ('plan' if limits_enabled else 'cuota') in blocked.json()['detail']
+    admin = clients(); administrator(admin, monkeypatch)
+    assigned = admin.mutate('PUT', f"/admin/accounts/{user['id']}/subscription", {
+        'plan_code': 'professional', 'duration_months': 1, 'revision': 0, 'note': 'Ampliar almacenamiento confirmado',
+    })
+    assert assigned.status_code == 200
+    assert own_plan(owner).json()['plan']['storage_limit_bytes'] == 2 * 1024**3
+    # No hace falta renovar de nuevo ni editar cuotas guardadas o variables.
+    target = ingest(owner, tour, scene, photo)
+    drain(database)
+    assert owner.get(f"/assets/{target['asset_id']}").json()['status'] == 'ready'
+    assert own_plan(owner).json()['usage']['storage_reserved_bytes'] == 3 * (len(photo) + 2 * DELIVERY_RESERVATION)
+    with Session(database[0]) as db:
+        assert all(db.get(Asset, UUID(asset_id)).status == 'ready' for asset_id in originals)
+        if org:
+            assert db.get(Organization, UUID(org['id'])).storage_quota_bytes == old_quota
+
+
+@pytest.mark.parametrize('limits_enabled', [False, True])
+def test_upgrade_uses_owner_capacity_for_collaborators_and_keeps_plan_budget(clients, database, monkeypatch, limits_enabled):
+    from app.modules.assets.service import DELIVERY_RESERVATION
+    photo = jpeg()
+    settings = get_settings()
+    technical_reserve = len(photo) + DELIVERY_RESERVATION
+    plan_reserve = len(photo) + 2 * DELIVERY_RESERVATION
+    monkeypatch.setattr(settings, 'subscription_limits_enabled', limits_enabled)
+    monkeypatch.setattr(settings, 'subscription_trial_storage_bytes', plan_reserve)
+    monkeypatch.setattr(settings, 'subscription_professional_storage_bytes', 2 * plan_reserve)
+    monkeypatch.setattr(settings, 'organization_storage_quota_bytes', technical_reserve)
+    monkeypatch.setattr(settings, 'tour_storage_quota_bytes', technical_reserve)
+    owner = clients(); user = owner.register().json()['user']
+    guest = clients(); invited = guest.register('paid-guest@example.com').json()['user']
+    org = organization(owner); tour = org_tour(owner, org)
+    assert owner.mutate('PUT', f"/organizations/{org['id']}/members", {
+        'email': invited['email_normalized'], 'role': 'editor',
+    }).status_code == 200
+    ingest(owner, tour, new_scene(owner, tour), photo); drain(database)
+    scene = new_scene(owner, tour)
+    path = f"/tours/{tour['id']}/scenes/{scene['id']}/uploads"
+    admin = clients(); administrator(admin, monkeypatch)
+    def assign(account, plan):
+        response = admin.mutate('PUT', f"/admin/accounts/{account['id']}/subscription", {
+            'plan_code': plan, 'revision': 0, 'duration_months': 1, 'note': 'Capacidad confirmada para pruebas',
+        })
+        assert response.status_code == 200
+    assign(invited, 'studio')
+    # El plan del invitado no presta capacidad al estudio de su cliente.
+    assert guest.mutate('POST', path, {'size_bytes': len(photo), 'mime_type': 'image/jpeg'}).status_code == 413
+    assign(user, 'professional')
+    target = ingest(guest, tour, scene, photo); drain(database)
+    assert guest.get(f"/assets/{target['asset_id']}").json()['status'] == 'ready'
+    assert own_plan(owner).json()['usage']['storage_reserved_bytes'] == 2 * plan_reserve
+    # La capacidad se comparte entre clientes, no se multiplica por organización.
+    another = org_tour(owner, organization(owner, 'Otro cliente'))
+    next_scene = new_scene(owner, another)
+    response = owner.mutate('POST', f"/tours/{another['id']}/scenes/{next_scene['id']}/uploads", {
+        'size_bytes': len(photo), 'mime_type': 'image/jpeg',
+    })
+    if limits_enabled:
+        assert response.status_code == 413 and 'plan' in response.json()['detail']
+    else:
+        assert response.status_code == 201  # El flag apagado sigue sin imponer cupos comerciales.
 
 
 def own_plan(client):

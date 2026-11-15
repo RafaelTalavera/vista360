@@ -92,14 +92,18 @@ def prepare(db: Session, user: User, tour_id: UUID, scene_id: UUID, data: Prepar
     used = lambda asset: asset.size_bytes + DELIVERY_RESERVATION if asset.status != "rejected" else 0
     reserve = data.size_bytes + DELIVERY_RESERVATION
     from app.modules.subscriptions.service import check_tour
-    check_tour(db, tour, 'upload', reserve=data.size_bytes + 2 * DELIVERY_RESERVATION)
+    plan_storage = check_tour(db, tour, 'upload', reserve=data.size_bytes + 2 * DELIVERY_RESERVATION)
     quota = settings.owner_storage_quota_bytes
     if tour.organization_id:
         from app.modules.organizations.models import Organization
         quota = db.get(Organization, tour.organization_id).storage_quota_bytes
+    # No dejar que las cuotas heredadas de la demo anulen la capacidad del plan
+    # vigente. Se calcula en cada carga: sirve también para planes ya activados.
+    quota = max(quota, plan_storage or 0)
+    tour_quota = max(settings.tour_storage_quota_bytes, plan_storage or 0)
     if sum(used(asset) for asset in roots) + reserve > quota:
         raise HTTPException(413, "Se alcanzó la cuota de almacenamiento de la organización" if tour.organization_id else "Se alcanzó la cuota de almacenamiento del usuario")
-    if sum(used(asset) for asset in roots if asset.tour_id == tour_id) + reserve > settings.tour_storage_quota_bytes:
+    if sum(used(asset) for asset in roots if asset.tour_id == tour_id) + reserve > tour_quota:
         raise HTTPException(413, "Se alcanzó la cuota de almacenamiento del recorrido")
     asset_id = uuid4()
     key = f"uploads/{tour_id}/{asset_id}.jpg"

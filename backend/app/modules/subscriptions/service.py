@@ -158,8 +158,10 @@ def change(db, actor, workspace, data, cancel=False):
     return view(db, workspace)
 
 
-def check_tour(db, tour, operation, reserve=0):
-    if not get_settings().subscription_limits_enabled:
+def check_tour(db, tour, operation, reserve=0) -> int | None:
+    """Comprueba el plan y devuelve su capacidad mínima para cuotas heredadas de carga."""
+    limits_enabled = get_settings().subscription_limits_enabled
+    if not limits_enabled and operation != 'upload':
         return
     workspace = db.scalar(select(Workspace).join(Organization, Organization.workspace_id == Workspace.id).where(Organization.id == tour.organization_id)) if tour.organization_id else owner_workspace(db, tour.owner_id)
     if workspace is None:
@@ -168,8 +170,14 @@ def check_tour(db, tour, operation, reserve=0):
     if row.plan_code == 'legacy':
         return
     if row.period_end <= now():
-        raise HTTPException(403, 'El período de tu plan terminó. Contactá a Vision360 para renovarlo')
+        if limits_enabled:
+            raise HTTPException(403, 'El período de tu plan terminó. Contactá a Vision360 para renovarlo')
+        return
     plan = catalog()[row.plan_code]
+    if not limits_enabled:
+        # La activación manual de un plan pago amplía las cuotas antiguas incluso
+        # durante la demo. El flag sigue sin imponer cupos comerciales ni vencimientos.
+        return plan.storage_limit_bytes if row.plan_code in ('professional', 'studio') else None
     if operation == 'publish':
         counts = usage(db, workspace)
         if not tour.published_version_id and counts.published + counts.preparing >= plan.published_limit:
@@ -182,3 +190,4 @@ def check_tour(db, tour, operation, reserve=0):
     elif operation == 'upload':
         if usage(db, workspace).storage_reserved_bytes + reserve > plan.storage_limit_bytes:
             raise HTTPException(413, 'Alcanzaste la reserva de almacenamiento de tu plan. Liberá espacio o solicitá ampliarlo')
+        return plan.storage_limit_bytes
