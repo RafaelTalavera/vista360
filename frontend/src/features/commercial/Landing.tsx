@@ -55,6 +55,6 @@ export function Landing() {
       <Plans />
       <PlatformContact />
     </main>
-    <footer className="border-t border-line/60 px-5 pt-8 pb-24"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5"><a href="/inicio" className="home-brand flex items-center gap-3 text-sm font-semibold"><BrandMark dynamic className="size-8" />Vision360</a><span className="text-xs text-muted">{t("Espacios reales, experiencias virtuales.")}</span><span className="badge border-accent/30 font-mono text-accent">{t('Versión demo · {0}', ['2026.11.15-01'])}</span><a href="/studio" className="text-xs text-accent">{t("Ingresar al estudio →")}</a></div></footer>
+    <footer className="border-t border-line/60 px-5 pt-8 pb-24"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-5"><a href="/inicio" className="home-brand flex items-center gap-3 text-sm font-semibold"><BrandMark dynamic className="size-8" />Vision360</a><span className="text-xs text-muted">{t("Espacios reales, experiencias virtuales.")}</span><a href="/studio" className="text-xs text-accent">{t("Ingresar al estudio →")}</a></div></footer>
   </div>
 }
