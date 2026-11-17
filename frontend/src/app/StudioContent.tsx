@@ -12,6 +12,7 @@ import { defaultRoute } from './routes'
 import type { StudioRoute } from './routes'
 import { NotFound } from './NotFound'
 
+const FeaturedToursAdmin = lazy(() => import('../features/platform/FeaturedToursAdmin').then(module => ({ default: module.FeaturedToursAdmin })))
 const PlatformContacts = lazy(() => import('../features/platform/PlatformContacts').then(module => ({ default: module.PlatformContacts })))
 const RegisteredAccounts = lazy(() => import('../features/platform/RegisteredAccounts').then(module => ({ default: module.RegisteredAccounts })))
 
@@ -23,8 +24,9 @@ export function StudioContent({ route, navigation, studio, user, staff, onExpire
   const { navigate } = navigation
   if (route.view === 'not-found') return <NotFound studio />
   if (route.view === 'account') return null
-  if (route.view === 'contacts' || route.view === 'accounts') {
+  if (route.view === 'contacts' || route.view === 'accounts' || route.view === 'featured') {
     if (staff !== true) return <p role={staff === null ? 'status' : 'alert'}>{staff === null ? t('Verificando acceso…') : t('Acceso reservado a administración de Vision360.')}</p>
+    if (route.view === 'featured') return <FeaturedToursAdmin query={route.query} offset={route.offset} onFilter={query => navigate({ ...route, query, offset: 0 })} onPage={offset => navigate({ ...route, offset })} onExpired={onExpired} />
     return route.view === 'contacts'
       ? <PlatformContacts query={route.query} offset={route.offset} onFilter={query => navigate({ ...route, query, offset: 0 })} onPage={offset => navigate({ ...route, offset })} onExpired={onExpired} />
       : <RegisteredAccounts query={route.query} kind={route.kind} offset={route.offset} onFilter={(query, kind) => navigate({ ...route, query, kind, offset: 0 })} onPage={offset => navigate({ ...route, offset })} onExpired={onExpired} />

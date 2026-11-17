@@ -6,6 +6,7 @@ import { CaptureVisual } from '../../components/CaptureVisual'
 import { Icon } from '../../components/Icon'
 import { Plans } from './Plans'
 import { PlatformContact } from './PlatformContact'
+import { FeaturedTours } from './FeaturedTours'
 
 const steps = [
   { title: 'Capturá', text: 'Tomá panorámicas completas de cada espacio.', icon: 'camera' as const },
@@ -23,6 +24,7 @@ export function Landing() {
       <nav aria-label={t("Navegación comercial")} className="mx-auto flex max-w-7xl flex-wrap items-center gap-4 px-5 py-5 sm:gap-6 sm:px-8">
         <a href="/inicio" className="home-brand mr-auto flex items-center gap-3 text-xl font-bold tracking-tight text-ink"><BrandMark dynamic />Vision360</a>
         <a href="#como-funciona" className="text-sm text-muted">{t("Cómo funciona")}</a>
+        <a href="#recorridos" className="text-sm text-muted">{t('Recorridos')}</a>
         <a href="#planes" className="text-sm text-muted">{t("Planes")}</a>
         <a href="#contacto" className="text-sm text-muted">{t("Contacto")}</a>
         <LanguageSwitcher />
@@ -43,6 +45,7 @@ export function Landing() {
         </div>
         <CaptureVisual />
       </section>
+      <FeaturedTours />
       <section id="como-funciona" className="scroll-mt-6 py-12">
         <p className="eyebrow section-heading mb-4">{t("Del espacio al enlace")}</p><h2 className="text-3xl sm:text-4xl">{t("Así se construye una visita.")}</h2>
         <ol className="mt-10 grid gap-7 sm:grid-cols-2 lg:grid-cols-4">{steps.map((step, index) => <li key={t(step.title)} className="border-t border-line pt-5"><div className="mb-7 flex items-center justify-between"><span className="font-mono text-sm text-accent">0{index + 1} /</span><Icon name={step.icon} className="size-5 text-subtle" /></div><h3>{t(step.title)}</h3><p className="muted mt-3">{t(step.text)}</p></li>)}</ol>

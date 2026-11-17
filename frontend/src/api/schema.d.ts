@@ -1281,6 +1281,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/featured-tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Public Featured */
+        get: operations["public_featured_api_v1_public_featured_tours_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/featured-tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Settings */
+        get: operations["settings_api_v1_admin_featured_tours_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/featured-tours/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Candidates */
+        get: operations["candidates_api_v1_admin_featured_tours_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/featured-tours/{position}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Save */
+        put: operations["save_api_v1_admin_featured_tours__position__put"];
+        post?: never;
+        /** Remove */
+        delete: operations["remove_api_v1_admin_featured_tours__position__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/plans": {
         parameters: {
             query?: never;
@@ -1703,6 +1772,94 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** FeaturedCandidate */
+        FeaturedCandidate: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Path */
+            path: string;
+        };
+        /** FeaturedCandidates */
+        FeaturedCandidates: {
+            /** Items */
+            items: components["schemas"]["FeaturedCandidate"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
+        };
+        /** FeaturedCard */
+        FeaturedCard: {
+            /** Position */
+            position: number;
+            /** Title */
+            title: string;
+            /** Path */
+            path: string;
+            /** Cover Url */
+            cover_url: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "home" | "hotel" | "business" | "other";
+            /** Summary */
+            summary: string;
+            /** Is Demo */
+            is_demo: boolean;
+        };
+        /** FeaturedInput */
+        FeaturedInput: {
+            /**
+             * Tour Id
+             * Format: uuid
+             */
+            tour_id: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "home" | "hotel" | "business" | "other";
+            /** Summary */
+            summary: string;
+            /** Is Demo */
+            is_demo: boolean;
+            /**
+             * Permission Confirmed
+             * @constant
+             */
+            permission_confirmed: true;
+        };
+        /** FeaturedSetting */
+        FeaturedSetting: {
+            /** Position */
+            position: number;
+            /**
+             * Tour Id
+             * Format: uuid
+             */
+            tour_id: string;
+            /** Title */
+            title: string;
+            /**
+             * Category
+             * @enum {string}
+             */
+            category: "home" | "hotel" | "business" | "other";
+            /** Summary */
+            summary: string;
+            /** Is Demo */
+            is_demo: boolean;
+            /** Available */
+            available: boolean;
         };
         /** GenerateDeliveryFile */
         GenerateDeliveryFile: {
@@ -5815,6 +5972,143 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AccountDirectory"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    public_featured_api_v1_public_featured_tours_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturedCard"][];
+                };
+            };
+        };
+    };
+    settings_api_v1_admin_featured_tours_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturedSetting"][];
+                };
+            };
+        };
+    };
+    candidates_api_v1_admin_featured_tours_candidates_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturedCandidates"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_api_v1_admin_featured_tours__position__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeaturedInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturedSetting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_api_v1_admin_featured_tours__position__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                position: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -16,6 +16,7 @@ from app.modules.properties import models as property_models
 from app.modules.studio import models as studio_models
 from app.modules.workspaces import models as workspace_models
 from app.modules.subscriptions import models as subscription_models
+from app.modules.platform import models as platform_models
 
 config = context.config
 if config.config_file_name is not None:
