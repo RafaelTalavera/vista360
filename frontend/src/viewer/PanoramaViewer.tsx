@@ -10,24 +10,27 @@ interface Props {
   scene: PanoramaScene
   onNavigate: ViewerCallbacks['onNavigate']
   experimentalTools?: boolean
+  allowWideView?: boolean
   onPick?: (coordinates: Coordinates) => void
   onSaveView?: (view: Coordinates & { hfov: number }) => void
   previewPoint?: Coordinates | null
   editingHotspotId?: string
 }
 
-export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, onPick, onSaveView, previewPoint, editingHotspotId }: Props) {
+export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, allowWideView = false, onPick, onSaveView, previewPoint, editingHotspotId }: Props) {
   const language = useLanguage()
   const hasPreviewPoint = Boolean(previewPoint)
   const section = useRef<HTMLElement>(null)
   const { fullscreen, toggle: toggleFullscreen } = useViewerFullscreen(section)
   const [showControls, setShowControls] = useState(false)
   const container = useRef<HTMLDivElement>(null)
+  const controls = useRef<HTMLDivElement>(null)
   const adapter = useRef<PanoramaAdapter | null>(null)
   const motion = useRef<ReturnType<typeof createMotionControl> | null>(null)
   const [motionState, setMotionState] = useState<MotionState>({ mode: 'off', message: '' })
   const [motionDevice] = useState(() => navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches)
   const [quality, setQuality] = useState<'auto' | 'high'>('auto')
+  const [wideView, setWideView] = useState(allowWideView)
   const preferredWidth = quality === 'auto' && motionDevice ? 2048 : undefined
   const previousLoad = useRef<{ sceneId: string; quality: string } | null>(null)
   const [motionUnavailable] = useState(motionAvailability)
@@ -47,6 +50,21 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
   pick.current = onPick
 
   useEffect(() => {
+    const panel = controls.current
+    if (!panel) return
+    let width = panel.getBoundingClientRect().width
+    const observer = new ResizeObserver(() => {
+      const next = panel.getBoundingClientRect().width
+      // Al girar el teléfono cambia el reparto de filas: empezar por los
+      // controles principales, sin conservar el scroll de la disposición vieja.
+      if (Math.abs(next - width) > 1) { panel.scrollTop = 0; panel.scrollLeft = 0 }
+      width = next
+    })
+    observer.observe(panel)
+    return () => observer.disconnect()
+  }, [])
+
+  useEffect(() => {
     motion.current = createMotionControl({
       getView: () => adapter.current?.getView() || null,
       setView: (view) => adapter.current?.setView(view),
@@ -62,7 +80,7 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
         onCoordinates: (point) => { setCoordinates(point); pick.current?.(point) },
         onError: (message) => { motion.current?.stop(); setStatus('error'); setError(message) },
         onManualInteraction: () => motion.current?.stop(),
-      })
+      }, { wideView })
     } catch (cause) {
       setStatus('error')
       setError(cause instanceof Error ? cause.message : t("No se pudo iniciar el visor."))
@@ -76,6 +94,7 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
     void adapter.current?.loadScene(scene, { preferredWidth, preserveView })
   }, [scene, attempt, quality, preferredWidth])
   useEffect(() => { adapter.current?.setPicking(picking) }, [picking, attempt])
+  useEffect(() => { adapter.current?.setWideView(wideView) }, [wideView, attempt])
   useEffect(() => {
     if (previewPoint !== undefined) setPicking(hasPreviewPoint)
   }, [hasPreviewPoint])
@@ -104,7 +123,7 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
           </div>
         )}
       </div>
-      <div className="viewer-controls" hidden={fullscreen && !showControls}>
+      <div ref={controls} className="viewer-controls" hidden={fullscreen && !showControls}>
       <div className="viewer-toolbar" aria-label={t("Controles del panorama")}>
         {motionDevice && <label className="viewer-quality">{t('Calidad')}{' '}
           <select aria-label={t('Calidad del panorama')} value={quality} disabled={status !== 'ready'} onChange={event => setQuality(event.target.value as 'auto' | 'high')}>
@@ -126,6 +145,12 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, on
           if (view) adapter.current?.setView({ ...view, hfov: 110 })
         }}>{t("Vista amplia")}</button>
         <button disabled={status !== 'ready'} onClick={() => { motion.current?.stop(); adapter.current?.setView({ ...scene.initialView, hfov: 110 }) }}>{t("Vista inicial")}</button>
+        {allowWideView && <label className="viewer-quality">{t('Encuadre')}{' '}
+          <select aria-label={t('Amplitud de la vista')} value={wideView ? 'wide' : 'natural'} disabled={status !== 'ready'} onChange={event => setWideView(event.target.value === 'wide')}>
+            <option value="wide">{t('Amplio')}</option>
+            <option value="natural">{t('Natural')}</option>
+          </select>
+        </label>}
         {onPick && <button disabled={status !== 'ready'} aria-pressed={picking} onClick={() => { motion.current?.stop(); setPicking(!picking) }}>{t("Ubicar punto")}</button>}
         {onPick && <button disabled={status !== 'ready'} onClick={() => {
           motion.current?.stop()

@@ -39,7 +39,7 @@ export function PublicTour({ slug, embedded = false }: { slug: string; embedded?
     {!tour && !error && <p role="status">{t("Cargando recorrido…")}</p>}
     {error && <><h1>{t("Recorrido no disponible")}</h1><p role="alert">{t(error)}</p><button onClick={() => setAttempt((value) => value + 1)}>{t("Reintentar recorrido")}</button></>}
     {tour && <>
-      {panorama && <PanoramaViewer scene={panorama} onNavigate={setActiveId} experimentalTools={false} />}
+      {panorama && <PanoramaViewer scene={panorama} onNavigate={setActiveId} experimentalTools={false} allowWideView />}
       {embedded && <div className="embed-room"><label htmlFor={roomId}>{t('Ambiente')}</label><select id={roomId} value={activeId} onChange={event => setActiveId(event.target.value)}>{tour.scenes.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>}
       {!embedded && <nav className="row-actions" aria-label={t("Ambientes del recorrido")}>{tour.scenes.map((item) => <button key={item.id}
         aria-current={item.id === activeId ? 'true' : undefined} onClick={() => setActiveId(item.id)}>{item.name}</button>)}</nav>

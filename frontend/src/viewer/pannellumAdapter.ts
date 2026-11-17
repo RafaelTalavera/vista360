@@ -10,12 +10,15 @@ const tangent = (degrees: number) => Math.tan(degrees * Math.PI / 360)
 const fieldOfView = (value: number) => Math.atan(value) * 360 / Math.PI
 type Projection = { scale: number; min: number; max: number }
 
-function projectionFor(container: HTMLElement, mobile: boolean): Projection {
+function projectionFor(container: HTMLElement, mobile: boolean, wideView: boolean): Projection {
   const { width, height } = container.getBoundingClientRect()
   // En vertical, 110° horizontales abarcan casi 150° verticales. Limitar la
-  // apertura vertical a 95° evita ese gran angular exagerado en el teléfono.
+  // apertura vertical evita ese gran angular exagerado en el teléfono. El
+  // encuadre público ampliado permite algo más de ambiente sin llegar a 150°.
+  const horizontal = wideView ? 120 : 110
+  const vertical = wideView ? 105 : 95
   const max = mobile && width > 0 && height > 0
-    ? Math.max(35, Math.min(110, fieldOfView(tangent(95) * width / height))) : 110
+    ? Math.max(35, Math.min(horizontal, fieldOfView(tangent(vertical) * width / height))) : horizontal
   const scale = tangent(max) / tangent(110)
   return { scale, min: fieldOfView(tangent(50) * scale), max }
 }
@@ -43,10 +46,12 @@ function textureLimit(): number {
 
 export function createPannellumAdapter(
   container: HTMLElement, callbacks: ViewerCallbacks,
+  options: { wideView?: boolean } = {},
 ): PanoramaAdapter {
   const maxTextureSize = textureLimit()
   const mobile = navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches
-  let projection = projectionFor(container, mobile)
+  let wideView = options.wideView ?? false
+  let projection = projectionFor(container, mobile, wideView)
   let viewer: PannellumViewer | null = null
   let controller: AbortController | null = null
   let generation = 0
@@ -67,14 +72,14 @@ export function createPannellumAdapter(
   function resize() {
     const reference = viewer?.isLoaded() ? referenceHfov(viewer.getHfov(), projection) : null
     if (reference !== null && viewer) {
-      projection = projectionFor(container, mobile)
+      projection = projectionFor(container, mobile, wideView)
       viewer.setHfovBounds([projection.min, projection.max])
       viewer.resize()
       viewer.setHfov(renderedHfov(reference, projection), false)
     } else {
       // Mientras carga, la proyección debe seguir correspondiendo al hfov
       // de la configuración nativa. Se adapta a la nueva medida al terminar.
-      if (!viewer) projection = projectionFor(container, mobile)
+      if (!viewer) projection = projectionFor(container, mobile, wideView)
       viewer?.resize()
     }
   }
@@ -267,7 +272,7 @@ export function createPannellumAdapter(
       const previousSceneId = activeSceneId
       const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
       const fadeDuration = reducedMotion || !viewer || preserved ? 0 : 420
-      projection = projectionFor(container, mobile)
+      projection = projectionFor(container, mobile, wideView)
       const config = {
         // Una foto estática se carga una vez en la GPU. dynamic=true volvería a
         // subir todos sus píxeles en cada frame de arrastre o de los sensores.
@@ -364,6 +369,12 @@ export function createPannellumAdapter(
     },
     zoom: (delta) => {
       if (viewer?.isLoaded()) viewer.setHfov(renderedHfov(referenceHfov(viewer.getHfov(), projection) + delta, projection), false)
+    },
+    setWideView: (enabled) => {
+      if (wideView === enabled) return
+      wideView = enabled
+      viewer?.stopMovement()
+      resize()
     },
     setPicking: (enabled) => { picking = enabled; pointerCancel() },
     setPreviewPoint,

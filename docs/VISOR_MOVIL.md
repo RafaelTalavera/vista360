@@ -98,7 +98,7 @@ Validación: compilación de producción, TypeScript y traducciones aprobadas. P
 
 ## Campo de visión adaptado al formato
 
-En dispositivos táctiles o con puntero grueso, la apertura se calcula con el ancho y alto reales del visor: el objetivo de apertura vertical es 95°, con máximo horizontal de 110°. Esto evita aplicar 110° horizontales a un visor alto y estrecho, donde la apertura vertical se acercaba a 150° y exageraba la perspectiva. Para proporciones extremas se mantiene un mínimo horizontal de 35°. En escritorio se conserva la proyección anterior.
+En el encuadre **Natural** y en el editor, la apertura de los dispositivos táctiles o con puntero grueso se calcula con el ancho y alto reales del visor: el objetivo de apertura vertical es 95°, con máximo horizontal de 110°. Esto evita aplicar 110° horizontales a un visor alto y estrecho, donde la apertura vertical se acercaba a 150° y exageraba la perspectiva. Para proporciones extremas se mantiene un mínimo horizontal de 35°. En escritorio se conserva la proyección anterior.
 
 Se recalcula al cambiar de tamaño, girar el dispositivo, entrar/salir de pantalla completa o cambiar el espacio disponible para la foto. Se conserva el nivel de zoom relativo mediante la distancia focal, además de yaw/pitch. Acercar, Alejar, Vista amplia y Vista inicial usan esa misma adaptación, incluida la carga de otros ambientes y los cambios de calidad. No se vuelve a descargar la foto al redimensionar.
 
@@ -107,3 +107,11 @@ Los valores de encuadre que expone el adaptador y guarda la API siguen usando la
 En el enlace público, la altura del panel de controles se limita para reservar espacio a la foto incluso con el movimiento activo. Si los controles y mensajes no entran, el panel permite desplazarlos y, al llegar al borde, continuar hacia el resto de la página. La pantalla completa conserva sus controles plegables.
 
 Validación del campo de visión: compilación y TypeScript aprobados. Se verificaron en Chrome de escritorio y emulación móvil los límites angulares reales, zoom relativo tras cambiar de formato, pantalla completa, giro durante la carga nativa de otra calidad, encuadre al volver a la página, conexiones, sensores, selección de puntos, calidad y acceso al contenido inferior. El flujo real de trabajo con API, PostgreSQL y worker temporales pasó en ambos formatos e incluye guardar una vista con zoom: la API acepta y devuelve 100° en la referencia compartida. No se migran ni se reescriben encuadres existentes. La comparación visual final en el teléfono físico queda a cargo de la prueba posterior al despliegue.
+
+## Encuadre amplio en recorridos públicos
+
+Los enlaces `/tour/{slug}` y `/embed/{slug}` comienzan en **Encuadre → Amplio** para mostrar más ambiente, incluidos los recorridos abiertos desde las tarjetas del inicio. La apertura máxima horizontal pasa de 110° a 120° en escritorio; en celular se adapta al formato con objetivo vertical de 105° y máximo horizontal de 120°. Se mantiene la protección frente a la apertura vertical cercana a 150° de una proyección horizontal fija en retrato.
+
+**Encuadre → Natural** restaura los límites anteriores (110° horizontal y 95° vertical en celular). Cambiar de encuadre conserva la dirección y el zoom relativo; **Vista amplia** o **Alejar** permiten llegar al máximo del encuadre elegido. La elección se conserva al cambiar de ambiente, calidad o tamaño de pantalla durante la visita; volver a abrir el recorrido comienza nuevamente en Amplio. En pantalla completa, el selector está dentro de **Mostrar controles**. Al cambiar el ancho del panel (por ejemplo al girar el teléfono), su desplazamiento vuelve al comienzo para mantener accesibles los controles principales.
+
+El cambio no recarga la fotografía ni el canvas, no modifica los archivos ni los encuadres guardados, y no requiere republicar trabajos. El editor y la prueba `/visor` conservan su apertura habitual. Un campo de visión más amplio muestra más contenido con algo más de perspectiva en los bordes: no modifica la posición física desde la que se tomó la fotografía.

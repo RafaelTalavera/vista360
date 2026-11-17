@@ -46,6 +46,7 @@ export interface PanoramaAdapter {
   setView: (view: Coordinates & { hfov?: number }) => void
   getView: () => (Coordinates & { hfov: number }) | null
   zoom: (delta: number) => void
+  setWideView: (enabled: boolean) => void
   setPicking: (enabled: boolean) => void
   setPreviewPoint: (point: Coordinates | null, replacingId?: string) => void
   coordinatesAt: (event: MouseEvent) => Coordinates | null

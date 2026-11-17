@@ -129,3 +129,81 @@ test('girar el celular durante la carga de otra calidad conserva el zoom y limit
   expect(rotatedWide.vfov).toBeCloseTo(95, 1)
   expect(Math.tan(rotatedZoomed.hfov * Math.PI / 360) / Math.tan(rotatedWide.hfov * Math.PI / 360)).toBeCloseTo(ratio, 2)
 })
+
+for (const prefix of ['tour', 'embed']) {
+  test(`vista pública ${prefix} comienza más amplia y permite encuadre natural sin recargar fotos`, async ({ page, isMobile }) => {
+    await page.addInitScript(() => {
+      let pannellum: any
+      Object.defineProperty(window, 'pannellum', { configurable: true, get: () => pannellum, set(value) {
+        const factory = value.viewer
+        value.viewer = (...args: any[]) => {
+          const viewer = factory(...args)
+          ;(window as any).__fovViewer = viewer
+          return viewer
+        }
+        pannellum = value
+      } })
+    })
+    await page.route('**/api/v1/public/tours/wide-tour', route => route.fulfill({ json: {
+      schema_version: 1, version: 1, title: 'Recorrido amplio', description: '', start_scene_id: 'living',
+      scenes: ['living', 'kitchen'].map((id, index) => ({ id, name: index ? 'Cocina' : 'Living',
+        initial_view: { yaw: 27, pitch: -8, hfov: 80 }, hotspots: [], sources: [
+          { url: `http://127.0.0.1:5175/panoramas/${index ? 'sala' : 'atrio'}-2048.png`, width: 2048, height: 1024 },
+          { url: `http://127.0.0.1:5175/panoramas/${index ? 'sala' : 'atrio'}-4096.png`, width: 4096, height: 2048 },
+        ] })),
+    } }))
+    const requests: string[] = []
+    page.on('request', request => { if (request.url().includes('/panoramas/')) requests.push(request.url()) })
+    await page.goto(`/${prefix}/wide-tour`)
+    await expect(page.locator('.viewer-frame')).toHaveAttribute('data-status', 'ready')
+    const mode = page.getByRole('combobox', { name: 'Amplitud de la vista', exact: true })
+    await expect(mode).toHaveValue('wide')
+    const opening = await projection(page)
+    expect(isMobile ? opening.vfov : opening.hfov).toBeCloseTo(isMobile ? 105 : 120, 1)
+    expect(opening.yaw).toBeCloseTo(27)
+    expect(opening.pitch).toBeCloseTo(-8)
+    await page.locator('.panorama canvas').evaluate(canvas => { canvas.dataset.wideCanvas = 'original' })
+    const downloads = requests.length
+    await mode.selectOption('natural')
+    const natural = await projection(page)
+    expect(isMobile ? natural.vfov : natural.hfov).toBeCloseTo(isMobile ? 95 : 110, 1)
+    expect(natural.yaw).toBeCloseTo(opening.yaw)
+    expect(natural.pitch).toBeCloseTo(opening.pitch)
+    await page.getByRole('button', { name: 'Acercar', exact: true }).click()
+    const zoomed = await projection(page)
+    const ratio = Math.tan(zoomed.hfov * Math.PI / 360) / Math.tan(natural.hfov * Math.PI / 360)
+    await mode.selectOption('wide')
+    const widerZoom = await projection(page)
+    expect(Math.tan(widerZoom.hfov * Math.PI / 360) / Math.tan(opening.hfov * Math.PI / 360)).toBeCloseTo(ratio, 2)
+    await page.getByRole('button', { name: 'Vista amplia', exact: true }).click()
+    await expect.poll(async () => (await projection(page)).hfov).toBeCloseTo(opening.hfov, 1)
+    expect(requests.length).toBe(downloads)
+    if (isMobile) {
+      await page.getByRole('button', { name: 'Acercar', exact: true }).click()
+      const beforeQuality = await projection(page)
+      await page.getByRole('combobox', { name: 'Calidad del panorama', exact: true }).selectOption('high')
+      await expect(page.locator('.viewer-frame')).toHaveAttribute('data-status', 'ready')
+      await expect.poll(async () => (await projection(page)).hfov).toBeCloseTo(beforeQuality.hfov, 1)
+      await page.getByRole('button', { name: 'Vista amplia', exact: true }).click()
+    }
+    await mode.selectOption('natural')
+    if (prefix === 'tour') await page.getByRole('button', { name: 'Cocina', exact: true }).click()
+    else await page.getByRole('combobox', { name: 'Ambiente', exact: true }).selectOption('kitchen')
+    await expect(page.locator('.viewer-frame')).toHaveAttribute('data-status', 'ready')
+    await expect(mode).toHaveValue('natural')
+    const next = await projection(page)
+    expect(isMobile ? next.vfov : next.hfov).toBeCloseTo(isMobile ? 95 : 110, 1)
+    await mode.selectOption('wide')
+    await page.getByRole('button', { name: 'Pantalla completa', exact: true }).click()
+    await expect(page.locator('.viewer-section--fullscreen')).toHaveCount(1)
+    await expect.poll(async () => { const view = await projection(page); return isMobile ? view.vfov : view.hfov }).toBeCloseTo(isMobile ? 105 : 120, 1)
+    const size = page.viewportSize()!
+    await page.setViewportSize({ width: 844, height: 390 })
+    await expect.poll(async () => (await projection(page)).width).toBeGreaterThan(800)
+    expect((await projection(page)).hfov).toBeLessThanOrEqual(120.1)
+    await page.setViewportSize(size)
+    await page.getByRole('button', { name: 'Salir de pantalla completa', exact: true }).click()
+    await expect(mode).toHaveValue('wide')
+    await expect(page.locator('canvas[data-wide-canvas="original"]')).toHaveCount(1)
+  })
+}

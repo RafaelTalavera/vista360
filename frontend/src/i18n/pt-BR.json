@@ -1339,5 +1339,9 @@
   "Buscando recorridos publicados…": "Buscando passeios publicados…",
   "Recorridos disponibles: {0}": "Passeios disponíveis: {0}",
   "Elegí un recorrido con una publicación activa": "Escolha um passeio com uma publicação ativa",
-  "Ese recorrido ya ocupa otro lugar destacado": "Esse passeio já ocupa outro espaço de destaque"
+  "Ese recorrido ya ocupa otro lugar destacado": "Esse passeio já ocupa outro espaço de destaque",
+  "Encuadre": "Enquadramento",
+  "Amplitud de la vista": "Amplitude da vista",
+  "Amplio": "Amplo",
+  "Natural": "Natural"
 }
