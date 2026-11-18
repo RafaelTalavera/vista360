@@ -132,3 +132,53 @@ def test_migration_roundtrip(database):
     assert 'featured_tours' not in inspect(database[0]).get_table_names()
     command.upgrade(config, 'head')
     assert 'featured_tours' in inspect(database[0]).get_table_names()
+
+
+def test_admin_directory_lists_all_owners_and_filters_without_opening_drafts(clients, database, monkeypatch):
+    visitor = clients(); owner = clients(); first_user = owner.register('hotel-owner@example.com').json()['user']
+    second = clients(); second.register('house-owner@example.com')
+    admin = clients(); administrator(admin, monkeypatch)
+    first, slug, _ = snapshot(database, first_user['id'], 'Hotel publicado')
+    draft = second.mutate('POST', '/tours', dict(title='Casa borrador', slug='casa-borrador')).json()
+    for client, code in [(visitor, 401), (owner, 403), (second, 403)]:
+        assert client.get('/admin/tours').status_code == code
+    result = admin.get('/admin/tours')
+    assert result.status_code == 200 and result.headers['cache-control'] == 'no-store'
+    assert result.json()['total'] == 2
+    rows = {item['id']: item for item in result.json()['items']}
+    assert rows[str(first)]['owner_email'] == 'hotel-owner@example.com'
+    assert rows[str(first)]['public_path'] == '/tour/' + slug
+    assert rows[draft['id']]['public_path'] is None
+    assert rows[draft['id']]['status'] == 'draft'
+    for forbidden in ['scenes', 'hotspots', 'password_hash', 'storage_key', 'sources']:
+        assert forbidden not in result.text
+    assert owner.get('/tours/' + draft['id']).status_code == 404
+    for query, expected in [('status=draft', draft['id']), ('status=published', str(first)),
+                            ('q=HOTEL-OWNER', str(first)), ('q=Hotel%20publicado', str(first))]:
+        found = admin.get('/admin/tours?' + query).json()
+        assert found['total'] == 1 and found['items'][0]['id'] == expected
+    for query in ['q=%25', 'q=_', 'offset=100']:
+        assert admin.get('/admin/tours?' + query).json()['items'] == []
+    first_page = admin.get('/admin/tours?limit=1').json()['items']
+    second_page = admin.get('/admin/tours?offset=1&limit=1').json()['items']
+    assert len({row['id'] for row in first_page + second_page}) == 2
+    for query in ['status=deleted', 'limit=0', 'limit=101', 'offset=-1', 'q=' + 'a' * 161]:
+        assert admin.get('/admin/tours?' + query).status_code == 422
+    admin.mutate('PUT', '/admin/featured-tours/1', payload(first))
+    featured = admin.get('/admin/tours?status=published').json()['items'][0]
+    assert featured['featured']['position'] == 1 and featured['featured']['available'] is True
+
+
+def test_owner_deleting_featured_tour_removes_home_and_admin_directory(clients, database, monkeypatch):
+    owner, tour, _ = ready(clients, database)
+    admin = clients(); administrator(admin, monkeypatch); visitor = clients()
+    publish(owner, tour); drain(database)
+    assert admin.mutate('PUT', '/admin/featured-tours/1', payload(tour['id'])).status_code == 200
+    assert len(visitor.get('/public/featured-tours').json()) == 1
+    assert len(admin.get('/admin/tours').json()['items']) == 1
+    assert owner.mutate('DELETE', '/tours/' + tour['id']).status_code == 204
+    assert visitor.get('/public/featured-tours').json() == []
+    assert admin.get('/admin/featured-tours').json() == []
+    assert admin.get('/admin/tours').json()['items'] == []
+    assert visitor.get('/public/tours/' + tour['slug']).status_code == 404
+    drain(database)

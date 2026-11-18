@@ -18,7 +18,7 @@ const uuid = (value: string | null) => value && /^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[
 export function readRoute(href = window.location.href): StudioRoute {
   const url = new URL(href)
   const parts = url.pathname.split('/').filter(Boolean)
-  const sections: Record<string, StudioRoute['view']> = { trabajos: 'jobs', organizaciones: 'organizations', particulares: 'organizations', clientes: 'clients', solicitudes: 'requests', usuarios: 'accounts', consultas: 'contacts', destacados: 'featured', 'mi-cuenta': 'account' }
+  const sections: Record<string, StudioRoute['view']> = { trabajos: 'jobs', organizaciones: 'organizations', particulares: 'organizations', clientes: 'clients', solicitudes: 'requests', usuarios: 'accounts', consultas: 'contacts', destacados: 'featured', recorridos: 'featured', 'mi-cuenta': 'account' }
   let view: StudioRoute['view'] = sections[parts[1]] || 'not-found'
   if (!parts.length || (parts[0] === 'studio' && parts.length === 1)) view = 'jobs'
   const detail = parts[2]
@@ -40,7 +40,7 @@ export function readRoute(href = window.location.href): StudioRoute {
   }
 }
 export function routeUrl(route: StudioRoute) {
-  const section = route.view === 'account' ? 'mi-cuenta' : route.view === 'contacts' ? 'consultas' : route.view === 'featured' ? 'destacados' : route.view === 'accounts' ? 'usuarios' : route.view === 'requests' ? 'solicitudes' : route.view === 'jobs' ? 'trabajos' : route.view === 'clients' ? 'clientes' : route.group === 'individuals' ? 'particulares' : 'organizaciones'
+  const section = route.view === 'account' ? 'mi-cuenta' : route.view === 'contacts' ? 'consultas' : route.view === 'featured' ? 'recorridos' : route.view === 'accounts' ? 'usuarios' : route.view === 'requests' ? 'solicitudes' : route.view === 'jobs' ? 'trabajos' : route.view === 'clients' ? 'clientes' : route.group === 'individuals' ? 'particulares' : 'organizaciones'
   const query = new URLSearchParams()
   if (route.selectedPlan) query.set('plan', route.selectedPlan)
   if (route.studioId) query.set('estudio', route.studioId)
@@ -58,6 +58,7 @@ export function routeUrl(route: StudioRoute) {
     if (route.tourId) query.set('recorrido', route.tourId)
   } else {
     if (route.query) query.set('buscar', route.query)
+    if (route.view === 'featured' && route.status && route.status !== 'all') query.set('estado', route.status)
     if (route.kind !== 'all') query.set('tipo', route.kind)
     if ((route.view === 'accounts' || route.view === 'contacts' || route.view === 'featured') && route.offset) query.set('pagina', String(route.offset / 50))
   }

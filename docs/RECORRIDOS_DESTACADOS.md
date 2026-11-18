@@ -5,11 +5,15 @@ El inicio (`/inicio#recorridos`) presenta hasta cuatro recorridos elegidos por l
 ## Administración
 
 1. Iniciar sesión con una cuenta incluida en `PLATFORM_ADMIN_USER_IDS`.
-2. Abrir **Administración → Recorridos destacados** (`/studio/destacados`).
-3. Buscar el recorrido por su título publicado. La búsqueda recorre las publicaciones de toda la plataforma, está paginada y sólo es accesible para la administración.
-4. Elegir uno de los cuatro lugares, un recorrido publicado, su categoría y una descripción breve (hasta 240 caracteres).
+2. Abrir **Administración → Recorridos del sistema** (`/studio/recorridos`). La dirección anterior `/studio/destacados` sigue funcionando.
+3. Buscar por título, nombre o email del titular y filtrar por publicados o borradores. La tabla reúne los recorridos de todas las cuentas, está paginada y sólo es accesible para la administración. La búsqueda y el filtro quedan en la dirección para conservarlos al recargar o usar Atrás/Adelante.
+4. En la fila de un recorrido publicado, usar **Ver recorrido** para abrir su enlace público o **Destacar** para elegir uno de los cuatro lugares, categoría y descripción breve (hasta 240 caracteres).
 5. Mantener **Mostrar como demostración** si las imágenes son de prueba. Desmarcarlo únicamente para trabajos reales autorizados.
 6. Confirmar que se tiene autorización para mostrar el recorrido y sus imágenes, y guardar.
+
+La tabla muestra título actual, titular, email, estado y lugar destacado. Los borradores permiten supervisar estos datos administrativos, pero no abren un visor privado ni se pueden destacar. Los cambios pendientes de un recorrido publicado no alteran la tarjeta del inicio hasta que el titular publique la nueva versión.
+
+**Editar destacado** permite modificar la descripción, categoría y etiqueta de un recorrido seleccionado. Para moverlo de lugar, quitarlo del inicio y volver a destacarlo. Si se elige un lugar ocupado para un nuevo destacado, se pide confirmación antes de reemplazarlo; los trabajos se conservan.
 
 La confirmación de autorización debe marcarse en cada guardado. No representa una validación automática de derechos de las imágenes. No se seleccionan trabajos automáticamente ni se modifica su contenido.
 
@@ -20,7 +24,7 @@ La confirmación de autorización debe marcarse en cada guardado. No representa 
 - Se muestran únicamente recorridos con una versión pública activa. Los borradores y los cambios pendientes no se exponen.
 - Al retirar una publicación, el recorrido desaparece de la selección pública en la siguiente carga del inicio. La configuración queda en administración como «Oculto»; si se vuelve a publicar, aparece nuevamente.
 - Una nueva versión publicada actualiza título y portada, conservando el lugar, la descripción y la etiqueta configurados.
-- Al borrar un recorrido, su selección editorial se elimina por clave foránea.
+- Al borrar un recorrido desde la cuenta de su titular, su selección editorial se elimina por clave foránea y desaparece tanto del directorio como de la siguiente carga del inicio. El enlace público deja de estar disponible. Una página que ya estaba abierta puede conservar la imagen o tarjeta que había cargado hasta actualizarse.
 - La portada usa la variante más pequeña ya publicada del ambiente inicial. No se duplican fotos ni se crean visores WebGL en el inicio.
 - Las imágenes se cargan de forma diferida. Si falla una portada, el título y el enlace siguen disponibles.
 - La respuesta pública contiene únicamente datos de la tarjeta, sin emails, IDs de titulares ni información de clientes. No se almacena en caché la selección para evitar conservar tarjetas de recorridos retirados.

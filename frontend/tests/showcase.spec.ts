@@ -8,20 +8,24 @@ function publishedFixture() {
 import os,json
 from pathlib import Path
 from uuid import uuid4
-from sqlalchemy import select,create_engine
+from sqlalchemy import select,create_engine,delete
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
 from app.main import create_app
 from app.modules.auth.models import User
 from app.modules.tours.models import Tour
 from app.modules.publications.models import Publication
+from app.modules.platform.models import FeaturedTour
 from app.storage.factory import get_public_storage
 url=make_url(os.environ['DATABASE_URL'])
 assert os.environ.get('APP_ENV')=='test' and url.host in ('localhost','127.0.0.1') and url.database.endswith('_test')
 with Session(create_engine(url)) as db:
+    db.execute(delete(FeaturedTour))
     owner=db.scalar(select(User).where(User.email_normalized==os.environ['TEST_ADMIN_EMAIL']))
     tour=Tour(owner_id=owner.id,title='Borrador privado',slug='hotel-demo-'+uuid4().hex)
-    db.add(tour);db.flush()
+    db.add(tour);db.flush();tour.title='Hotel '+tour.slug[-8:]
+    draft=Tour(owner_id=owner.id,title='Borrador '+tour.slug[-8:],slug='draft-'+uuid4().hex)
+    db.add(draft)
     scene=str(uuid4());asset=str(uuid4());key='showcase/'+asset+'.jpg'
     get_public_storage('local').put(key,Path(os.environ['TEST_PANORAMA_FILE']))
     publication=Publication(tour_id=tour.id,version=1,revision=0,status='active',storage_backend='local',document={
@@ -29,8 +33,8 @@ with Session(create_engine(url)) as db:
       'scenes':[{'id':scene,'name':'Living','initial_view':{'yaw':0,'pitch':0,'hfov':110},'hotspots':[],
                  'sources':[{'width':1024,'height':512,'asset_id':asset,'key':key}]}]})
     db.add(publication);db.flush();tour.status='published';tour.published_version_id=publication.id
-    db.commit();print(json.dumps({'id':str(tour.id),'slug':tour.slug}))
-`], { cwd: resolve('../backend'), encoding: 'utf8' }).trim()) as { id: string; slug: string }
+    db.commit();print(json.dumps({'id':str(tour.id),'slug':tour.slug,'title':tour.title,'draftTitle':draft.title}))
+`], { cwd: resolve('../backend'), encoding: 'utf8' }).trim()) as { id: string; slug: string; title: string; draftTitle: string }
 }
 
 test('showcase administra destacados y visitante abre el recorrido sin registro', async ({ page, browser, baseURL }, testInfo) => {
@@ -42,22 +46,38 @@ test('showcase administra destacados y visitante abre el recorrido sin registro'
   await page.getByLabel('Email', { exact: true }).fill(process.env.TEST_ADMIN_EMAIL!)
   await page.getByLabel('Contraseña', { exact: true }).fill('Test-password-123!')
   await page.getByRole('button', { name: 'Ingresar', exact: true }).click()
-  await navigate(page, 'Recorridos destacados')
-  await expect(page).toHaveURL(/\/studio\/destacados/)
-  const slot = page.getByRole('form', { name: 'Destacado 1', exact: true })
-  await slot.getByLabel('Recorrido publicado', { exact: true }).selectOption(fixture.id)
+  await navigate(page, 'Recorridos del sistema')
+  await expect(page).toHaveURL(/\/studio\/recorridos/)
+  const table = page.getByRole('table', { name: 'Recorridos del sistema', exact: true })
+  const row = table.getByRole('row').filter({ hasText: fixture.title })
+  const draftRow = table.getByRole('row').filter({ hasText: fixture.draftTitle })
+  await expect(draftRow.getByRole('button', { name: 'Destacar', exact: true })).toBeDisabled()
+  await expect(draftRow.getByRole('link', { name: 'Ver recorrido', exact: true })).toHaveCount(0)
+  await page.getByLabel('Buscar recorrido o titular', { exact: true }).fill(fixture.title)
+  await page.getByRole('combobox', { name: 'Estado del recorrido', exact: true }).selectOption('published')
+  await page.getByRole('button', { name: 'Buscar', exact: true }).click()
+  await expect(table.getByRole('row')).toHaveCount(2)
+  await expect(page).toHaveURL(/estado=published/)
+  await row.getByRole('button', { name: 'Destacar', exact: true }).click()
+  const slot = page.getByRole('form', { name: 'Destacar recorrido', exact: true })
+  await slot.getByLabel('Lugar en el inicio', { exact: true }).selectOption('1')
   await slot.getByLabel('Tipo de espacio', { exact: true }).selectOption('hotel')
   await slot.getByLabel('Descripción para el inicio', { exact: true }).fill('Explorá el living de este hotel.')
   await expect(slot.getByRole('button', { name: 'Guardar destacado', exact: true })).toBeDisabled()
   const permission = 'Tengo autorización para mostrar este recorrido y sus imágenes en el inicio público.'
   await slot.getByLabel(permission, { exact: true }).check()
   await slot.getByRole('button', { name: 'Guardar destacado', exact: true }).click()
-  await expect(slot.getByRole('status')).toHaveText('Destacado guardado. Ya está disponible en el inicio.')
+  await expect(page.getByRole('status').filter({ hasText: 'Destacado guardado.' })).toBeVisible()
   await page.reload()
-  await expect(slot.getByLabel('Recorrido publicado', { exact: true })).toHaveValue(fixture.id)
+  await expect(page.getByRole('combobox', { name: 'Estado del recorrido', exact: true })).toHaveValue('published')
+  await expect(row).toContainText('Destacado 1')
+  await row.getByRole('button', { name: 'Editar destacado', exact: true }).click()
   await expect(slot.getByLabel(permission, { exact: true })).not.toBeChecked()
+  await expect(slot.getByLabel('Descripción para el inicio', { exact: true })).toHaveValue('Explorá el living de este hotel.')
+  await slot.getByRole('button', { name: 'Cancelar', exact: true }).click()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-  await page.screenshot({ path: testInfo.outputPath('destacados-admin.png'), fullPage: true })
+  await table.evaluate(element => { element.parentElement!.scrollLeft = 0 })
+  await page.screenshot({ path: testInfo.outputPath('recorridos-admin.png'), fullPage: true })
   const visitorContext = await browser.newContext({ baseURL, viewport: page.viewportSize()! })
   try {
     const visitor = await visitorContext.newPage()
@@ -80,8 +100,8 @@ test('showcase administra destacados y visitante abre el recorrido sin registro'
     await expect(visitor.getByLabel('Contraseña', { exact: true })).toHaveCount(0)
     await visitor.goto('/studio/destacados')
     await expect(visitor.getByRole('button', { name: 'Ingresar', exact: true })).toBeVisible()
-    await slot.getByRole('button', { name: 'Quitar del inicio', exact: true }).click()
-    await expect(slot.getByRole('status')).toHaveText('El recorrido se quitó del inicio. El trabajo se conserva.')
+    await row.getByRole('button', { name: 'Quitar del inicio', exact: true }).click()
+    await expect(page.getByRole('status').filter({ hasText: 'El recorrido se quitó del inicio.' })).toBeVisible()
     await visitor.goto('/inicio#recorridos')
     await expect(visitor.getByText('Pronto vas a poder explorar nuestros recorridos destacados desde acá.', { exact: true })).toBeVisible()
   } finally { await visitorContext.close() }

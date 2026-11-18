@@ -4,9 +4,12 @@ import type { components } from './schema'
 export type FeaturedSetting = components['schemas']['FeaturedSetting']
 export type FeaturedCard = components['schemas']['FeaturedCard']
 export type FeaturedInput = components['schemas']['FeaturedInput']
+export type AdminTour = components['schemas']['AdminTour']
+export type AdminTours = components['schemas']['AdminTours']
 export type FeaturedCandidates = components['schemas']['FeaturedCandidates']
 export const showcaseApi = {
   publicList: () => request<FeaturedCard[]>('/public/featured-tours', 'GET', undefined, 'omit'),
+  directory: (q: string, status: string, offset: number) => request<AdminTours>(`/admin/tours?${new URLSearchParams({ q, status, offset: String(offset) })}`),
   settings: () => request<FeaturedSetting[]>('/admin/featured-tours'),
   candidates: (q: string, offset: number) => request<FeaturedCandidates>(`/admin/featured-tours/candidates?${new URLSearchParams({ q, offset: String(offset) })}`),
   save: (position: number, data: FeaturedInput) => request<FeaturedSetting>(`/admin/featured-tours/${position}`, 'PUT', data),

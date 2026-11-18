@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -60,6 +60,50 @@ class FeaturedCandidates(BaseModel):
     total: int
     offset: int
     limit: int
+
+
+class AdminTour(BaseModel):
+    id: UUID
+    title: str
+    owner_name: str
+    owner_email: str
+    status: Literal['draft', 'published']
+    public_path: str | None
+    featured: FeaturedSetting | None
+
+
+class AdminTours(BaseModel):
+    items: list[AdminTour]
+    total: int
+    offset: int
+    limit: int
+
+
+@router.get('/admin/tours', response_model=AdminTours)
+def directory(q: str = Query(default='', max_length=160), status: Literal['all', 'draft', 'published'] = 'all',
+              offset: int = Query(default=0, ge=0), limit: int = Query(default=50, ge=1, le=100),
+              db: Session = Depends(get_db), actor: User = Depends(administrator)):
+    query = select(Tour, User, Publication, FeaturedTour).join(User, User.id == Tour.owner_id).outerjoin(
+        Publication, Publication.id == Tour.published_version_id).outerjoin(FeaturedTour, FeaturedTour.tour_id == Tour.id)
+    if status != 'all':
+        query = query.where(Tour.status == status)
+    if term := q.strip():
+        query = query.where(or_(*(field.icontains(term, autoescape=True) for field in (
+            Tour.title, User.display_name, User.email_normalized, Publication.document['title'].astext,
+        ))))
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    rows = db.execute(query.order_by(Tour.created_at.desc(), Tour.id).offset(offset).limit(limit))
+    items = []
+    for tour, owner, publication, feature in rows:
+        available = tour.status == 'published' and publication is not None and publication.status == 'active'
+        items.append(AdminTour(id=tour.id, title=tour.title, owner_name=owner.display_name,
+            owner_email=owner.email_normalized, status=tour.status,
+            public_path=f'/tour/{tour.slug}' if available else None,
+            featured=FeaturedSetting(position=feature.position, tour_id=tour.id,
+                title=publication.document['title'] if available else tour.title,
+                category=feature.category, summary=feature.summary, is_demo=feature.is_demo,
+                available=available) if feature else None))
+    return AdminTours(items=items, total=total, offset=offset, limit=limit)
 
 
 def published():

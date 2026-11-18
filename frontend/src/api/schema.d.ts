@@ -1281,6 +1281,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/tours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Directory */
+        get: operations["directory_api_v1_admin_tours_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/featured-tours": {
         parameters: {
             query?: never;
@@ -1524,6 +1541,39 @@ export interface components {
              * Format: password
              */
             token: string;
+        };
+        /** AdminTour */
+        AdminTour: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Title */
+            title: string;
+            /** Owner Name */
+            owner_name: string;
+            /** Owner Email */
+            owner_email: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "published";
+            /** Public Path */
+            public_path: string | null;
+            featured: components["schemas"]["FeaturedSetting"] | null;
+        };
+        /** AdminTours */
+        AdminTours: {
+            /** Items */
+            items: components["schemas"]["AdminTour"][];
+            /** Total */
+            total: number;
+            /** Offset */
+            offset: number;
+            /** Limit */
+            limit: number;
         };
         /** AssetResponse */
         AssetResponse: {
@@ -5971,6 +6021,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AccountDirectory"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    directory_api_v1_admin_tours_get: {
+        parameters: {
+            query?: {
+                q?: string;
+                status?: "all" | "draft" | "published";
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTours"];
                 };
             };
             /** @description Validation Error */

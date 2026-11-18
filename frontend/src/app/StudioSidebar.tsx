@@ -18,7 +18,7 @@ export function StudioSidebar({ route, signedIn, staff, owner, organizationId, o
     ] : []),
     ...(staff ? [
       { id: 'accounts', label: t('Usuarios registrados'), icon: 'grid', to: { view: 'accounts' } },
-      { id: 'featured', label: t('Recorridos destacados'), icon: 'image', to: { view: 'featured' } },
+      { id: 'featured', label: t('Recorridos del sistema'), icon: 'image', to: { view: 'featured' } },
       { id: 'contacts', label: t('Consultas del sistema'), icon: 'link', to: { view: 'contacts' } },
     ] : []),
   ] as { id: string; label: string; aria?: string; icon: Parameters<typeof Icon>[0]['name']; to: Partial<StudioRoute> }[]
