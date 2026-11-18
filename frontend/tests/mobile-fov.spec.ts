@@ -131,7 +131,7 @@ test('girar el celular durante la carga de otra calidad conserva el zoom y limit
 })
 
 for (const prefix of ['tour', 'embed']) {
-  test(`vista pública ${prefix} comienza más amplia y permite encuadre natural sin recargar fotos`, async ({ page, isMobile }) => {
+  test(`vista pública ${prefix} abre en natural como la vista previa y permite ampliar sin recargar fotos`, async ({ page, isMobile }) => {
     await page.addInitScript(() => {
       let pannellum: any
       Object.defineProperty(window, 'pannellum', { configurable: true, get: () => pannellum, set(value) {
@@ -157,13 +157,16 @@ for (const prefix of ['tour', 'embed']) {
     await page.goto(`/${prefix}/wide-tour`)
     await expect(page.locator('.viewer-frame')).toHaveAttribute('data-status', 'ready')
     const mode = page.getByRole('combobox', { name: 'Amplitud de la vista', exact: true })
-    await expect(mode).toHaveValue('wide')
-    const opening = await projection(page)
-    expect(isMobile ? opening.vfov : opening.hfov).toBeCloseTo(isMobile ? 105 : 120, 1)
-    expect(opening.yaw).toBeCloseTo(27)
-    expect(opening.pitch).toBeCloseTo(-8)
+    await expect(mode).toHaveValue('natural')
+    const naturalOpening = await projection(page)
+    expect(isMobile ? naturalOpening.vfov : naturalOpening.hfov).toBeCloseTo(isMobile ? 95 : 110, 1)
+    expect(naturalOpening.yaw).toBeCloseTo(27)
+    expect(naturalOpening.pitch).toBeCloseTo(-8)
     await page.locator('.panorama canvas').evaluate(canvas => { canvas.dataset.wideCanvas = 'original' })
     const downloads = requests.length
+    await mode.selectOption('wide')
+    const opening = await projection(page)
+    expect(isMobile ? opening.vfov : opening.hfov).toBeCloseTo(isMobile ? 105 : 120, 1)
     await mode.selectOption('natural')
     const natural = await projection(page)
     expect(isMobile ? natural.vfov : natural.hfov).toBeCloseTo(isMobile ? 95 : 110, 1)

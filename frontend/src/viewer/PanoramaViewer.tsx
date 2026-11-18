@@ -30,7 +30,7 @@ export function PanoramaViewer({ scene, onNavigate, experimentalTools = true, al
   const [motionState, setMotionState] = useState<MotionState>({ mode: 'off', message: '' })
   const [motionDevice] = useState(() => navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches)
   const [quality, setQuality] = useState<'auto' | 'high'>('auto')
-  const [wideView, setWideView] = useState(allowWideView)
+  const [wideView, setWideView] = useState(false)
   const preferredWidth = quality === 'auto' && motionDevice ? 2048 : undefined
   const previousLoad = useRef<{ sceneId: string; quality: string } | null>(null)
   const [motionUnavailable] = useState(motionAvailability)
